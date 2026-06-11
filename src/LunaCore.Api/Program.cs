@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LunaCore.Api.Data;
 using LunaCore.Api.Models;
+using LunaCore.Api.Payments;
 using LunaCore.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +18,9 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPasswordHasher<Negocio>, PasswordHasher<Negocio>>();
 builder.Services.AddSingleton<JwtService>();
+builder.Services.AddScoped<IPaymentGateway, MercadoPagoGateway>();
+builder.Services.AddScoped<IPaymentGateway, StripeGateway>();
+builder.Services.AddScoped<IPaymentGateway, CulqiGateway>();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
@@ -142,6 +146,38 @@ app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbCont
     return Results.Ok(new { reply, model, usados = uso.Mensajes, limite, remaining = Math.Max(0, limite - uso.Mensajes) });
 }).RequireAuthorization();
 
+/* ── Planes y pagos ── */
+app.MapGet("/api/plans", async (AppDbContext db) =>
+    Results.Ok(await db.Planes.OrderBy(p => p.PrecioMensual)
+        .Select(p => new { p.Id, p.Nombre, p.PrecioMensual, p.LimiteMensajes }).ToListAsync()));
+
+app.MapPost("/api/billing/checkout", async (CheckoutReq req, ClaimsPrincipal user, AppDbContext db, IEnumerable<IPaymentGateway> gateways, HttpContext ctx) =>
+{
+    var id = NegocioId(user);
+    var negocio = await db.Negocios.FindAsync(id);
+    if (negocio is null) return Results.Unauthorized();
+    var plan = await db.Planes.FindAsync(req.PlanId);
+    if (plan is null) return Results.BadRequest(new { error = "Plan inválido." });
+
+    var gw = gateways.FirstOrDefault(g => g.Name == (req.Gateway ?? "mercadopago"));
+    if (gw is null) return Results.BadRequest(new { error = "Pasarela no soportada." });
+
+    var baseUrl = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var result = await gw.CreateCheckoutAsync(negocio, plan, baseUrl);
+    return result.Ok
+        ? Results.Ok(new { url = result.Url })
+        : Results.Json(new { error = "checkout", message = result.Message }, statusCode: 400);
+}).RequireAuthorization();
+
+app.MapPost("/api/billing/webhook/{gateway}", async (string gateway, HttpRequest httpReq, AppDbContext db, IEnumerable<IPaymentGateway> gateways) =>
+{
+    using var reader = new StreamReader(httpReq.Body);
+    var body = await reader.ReadToEndAsync();
+    var gw = gateways.FirstOrDefault(g => g.Name == gateway);
+    if (gw is not null) await gw.HandleWebhookAsync(body, db);
+    return Results.Ok();
+});
+
 // Aplica migraciones pendientes al iniciar (dev)
 using (var scope = app.Services.CreateScope())
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
@@ -161,6 +197,10 @@ record RegisterReq(
 record LoginReq(
     [property: JsonPropertyName("email")] string? Email,
     [property: JsonPropertyName("password")] string? Password);
+
+record CheckoutReq(
+    [property: JsonPropertyName("planId")] int PlanId,
+    [property: JsonPropertyName("gateway")] string? Gateway);
 
 record ChatMessage(
     [property: JsonPropertyName("role")] string Role,

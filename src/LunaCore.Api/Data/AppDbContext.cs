@@ -8,6 +8,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Negocio> Negocios => Set<Negocio>();
     public DbSet<Plan> Planes => Set<Plan>();
     public DbSet<UsoMensual> UsosMensuales => Set<UsoMensual>();
+    public DbSet<Suscripcion> Suscripciones => Set<Suscripcion>();
+    public DbSet<PagoEvento> PagoEventos => Set<PagoEvento>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
