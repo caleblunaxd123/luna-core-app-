@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using LunaCore.Api.Data;
 using LunaCore.Api.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace LunaCore.Api.Payments;
 
@@ -57,7 +58,40 @@ public class MercadoPagoGateway(IHttpClientFactory httpFactory, IConfiguration c
     {
         db.PagoEventos.Add(new PagoEvento { Gateway = Name, Tipo = "notification", Payload = body });
         await db.SaveChangesAsync();
-        // TODO (con credenciales reales): consultar el pago en MP, validar status="approved",
-        // leer external_reference "negocioId:planId" y activar el plan del negocio + crear/actualizar Suscripcion.
+
+        var token = cfg["MercadoPago:AccessToken"];
+        if (string.IsNullOrWhiteSpace(token)) return;
+        try
+        {
+            string? paymentId = null;
+            using (var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body))
+                if (doc.RootElement.TryGetProperty("data", out var data) && data.TryGetProperty("id", out var pid))
+                    paymentId = pid.ValueKind == JsonValueKind.String ? pid.GetString() : pid.GetRawText();
+            if (string.IsNullOrWhiteSpace(paymentId)) return;
+
+            var http = httpFactory.CreateClient();
+            http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+            var resp = await http.GetAsync($"https://api.mercadopago.com/v1/payments/{paymentId}");
+            if (!resp.IsSuccessStatusCode) return;
+
+            using var pago = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+            var status = pago.RootElement.GetProperty("status").GetString();
+            var extRef = pago.RootElement.TryGetProperty("external_reference", out var er) ? er.GetString() : null;
+            if (status != "approved" || string.IsNullOrWhiteSpace(extRef) || !extRef.Contains(':')) return;
+
+            var parts = extRef.Split(':');
+            if (!int.TryParse(parts[0], out var negocioId) || !int.TryParse(parts[1], out var planId)) return;
+
+            var negocio = await db.Negocios.FindAsync(negocioId);
+            if (negocio is null) return;
+            negocio.PlanId = planId;   // activa el plan pagado
+            db.Suscripciones.Add(new Suscripcion
+            {
+                NegocioId = negocioId, PlanId = planId, Estado = "active",
+                Gateway = Name, GatewayRef = paymentId, ProximaRenovacion = DateTime.UtcNow.AddMonths(1)
+            });
+            await db.SaveChangesAsync();
+        }
+        catch { /* no romper el webhook ante payloads inesperados */ }
     }
 }

@@ -18,6 +18,8 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPasswordHasher<Negocio>, PasswordHasher<Negocio>>();
 builder.Services.AddSingleton<JwtService>();
+builder.Services.AddScoped<AgentRunner>();
+builder.Services.AddScoped<WhatsAppService>();
 builder.Services.AddScoped<IPaymentGateway, MercadoPagoGateway>();
 builder.Services.AddScoped<IPaymentGateway, StripeGateway>();
 builder.Services.AddScoped<IPaymentGateway, CulqiGateway>();
@@ -124,7 +126,7 @@ app.MapPut("/api/agente", async (AgenteReq r, ClaimsPrincipal user, AppDbContext
 }).RequireAuthorization();
 
 /* ── Chat: el empleado digital, con límite POR CUENTA y config del negocio ── */
-app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbContext db, IHttpClientFactory httpFactory, IConfiguration cfg) =>
+app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbContext db, AgentRunner runner) =>
 {
     var id = NegocioId(user);
     var negocio = await db.Negocios.Include(n => n.Plan).FirstOrDefaultAsync(n => n.Id == id);
@@ -138,38 +140,86 @@ app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbCont
     if (uso.Mensajes >= limite)
         return Results.Json(new { error = "limit", limit = true, plan = negocio.Plan?.Nombre, limite }, statusCode: 429);
 
-    var key = cfg["GROQ_API_KEY"];
-    if (string.IsNullOrWhiteSpace(key))
-        return Results.Json(new { error = "config", message = "Falta GROQ_API_KEY (env o user-secrets)." }, statusCode: 500);
-
     var agente = await db.AgentesConfig.FirstOrDefaultAsync(a => a.NegocioId == id) ?? new AgenteConfig { Rol = "ventas" };
-    var model = cfg["GROQ_MODEL"] ?? "llama-3.3-70b-versatile";
-    var messages = req.Messages ?? new();
-
-    var payload = new
-    {
-        model,
-        temperature = 0.6,
-        max_tokens = 220,
-        messages = new[] { new { role = "system", content = AgentPrompt.Build(negocio, agente) } }
-            .Concat(messages.TakeLast(12).Select(m => new { role = m.Role, content = m.Content }))
-            .ToArray()
-    };
-
-    var http = httpFactory.CreateClient();
-    http.DefaultRequestHeaders.Add("Authorization", $"Bearer {key}");
-    var resp = await http.PostAsync("https://api.groq.com/openai/v1/chat/completions",
-        new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
-    if (!resp.IsSuccessStatusCode)
-        return Results.Json(new { error = "groq", detail = await resp.Content.ReadAsStringAsync() }, statusCode: 502);
-
-    using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-    var reply = doc.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString()?.Trim() ?? "…";
+    var history = (req.Messages ?? new()).Select(m => (m.Role, m.Content)).ToList();
+    var result = await runner.ReplyAsync(negocio, agente, history);
+    if (!result.Ok)
+        return result.Error == "config"
+            ? Results.Json(new { error = "config", message = "Falta GROQ_API_KEY (env o user-secrets)." }, statusCode: 500)
+            : Results.Json(new { error = "groq", detail = result.Error }, statusCode: 502);
 
     uso.Mensajes++;
     await db.SaveChangesAsync();
-    return Results.Ok(new { reply, model, usados = uso.Mensajes, limite, remaining = Math.Max(0, limite - uso.Mensajes) });
+    return Results.Ok(new { reply = result.Reply, usados = uso.Mensajes, limite, remaining = Math.Max(0, limite - uso.Mensajes) });
 }).RequireAuthorization();
+
+/* ── Leads capturados (por WhatsApp) ── */
+app.MapGet("/api/leads", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var leads = await db.Leads.Where(l => l.NegocioId == id).OrderByDescending(l => l.CreatedAt).Take(100)
+        .Select(l => new { l.Contacto, l.Mensaje, l.Canal, l.CreatedAt }).ToListAsync();
+    return Results.Ok(leads);
+}).RequireAuthorization();
+
+/* ── WhatsApp: conectar el número del negocio (guarda phone_number_id) ── */
+app.MapPut("/api/whatsapp/connect", async (WaConnectReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var n = await db.Negocios.FindAsync(id);
+    if (n is null) return Results.Unauthorized();
+    n.WhatsappPhoneNumberId = r.PhoneNumberId;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+/* ── WhatsApp Cloud API: verificación del webhook (Meta) ── */
+app.MapGet("/api/whatsapp/webhook", (HttpRequest req, IConfiguration cfg) =>
+{
+    var mode = req.Query["hub.mode"].ToString();
+    var verify = req.Query["hub.verify_token"].ToString();
+    var challenge = req.Query["hub.challenge"].ToString();
+    return (mode == "subscribe" && verify == cfg["WhatsApp:VerifyToken"])
+        ? Results.Text(challenge) : Results.Unauthorized();
+});
+
+/* ── WhatsApp Cloud API: recibe mensajes → agente responde + captura lead ── */
+app.MapPost("/api/whatsapp/webhook", async (HttpRequest httpReq, AppDbContext db, AgentRunner runner, WhatsAppService wa) =>
+{
+    using var reader = new StreamReader(httpReq.Body);
+    var body = await reader.ReadToEndAsync();
+    try
+    {
+        using var doc = JsonDocument.Parse(body);
+        var value = doc.RootElement.GetProperty("entry")[0].GetProperty("changes")[0].GetProperty("value");
+        if (!value.TryGetProperty("messages", out var msgs)) return Results.Ok(); // estados de entrega, etc.
+
+        var phoneNumberId = value.GetProperty("metadata").GetProperty("phone_number_id").GetString();
+        var msg = msgs[0];
+        var from = msg.GetProperty("from").GetString() ?? "";
+        var text = msg.TryGetProperty("text", out var t) ? (t.GetProperty("body").GetString() ?? "") : "";
+
+        var negocio = await db.Negocios.Include(n => n.Plan).FirstOrDefaultAsync(n => n.WhatsappPhoneNumberId == phoneNumberId);
+        if (negocio is null) return Results.Ok();
+
+        var periodo = DateTime.UtcNow.ToString("yyyyMM");
+        var uso = await db.UsosMensuales.FirstOrDefaultAsync(u => u.NegocioId == negocio.Id && u.Periodo == periodo);
+        if (uso is null) { uso = new UsoMensual { NegocioId = negocio.Id, Periodo = periodo }; db.UsosMensuales.Add(uso); }
+        var limite = negocio.Plan?.LimiteMensajes ?? 50;
+
+        db.Leads.Add(new Lead { NegocioId = negocio.Id, Contacto = from, Mensaje = text });
+
+        if (uso.Mensajes < limite)
+        {
+            var agente = await db.AgentesConfig.FirstOrDefaultAsync(a => a.NegocioId == negocio.Id) ?? new AgenteConfig { Rol = "ventas" };
+            var result = await runner.ReplyAsync(negocio, agente, new() { ("user", text) });
+            if (result.Ok) { await wa.SendAsync(from, result.Reply!); uso.Mensajes++; }
+        }
+        await db.SaveChangesAsync();
+    }
+    catch { /* no romper el webhook ante payloads inesperados */ }
+    return Results.Ok();
+});
 
 /* ── Planes y pagos ── */
 app.MapGet("/api/plans", async (AppDbContext db) =>
@@ -233,6 +283,9 @@ record AgenteReq(
     [property: JsonPropertyName("baseConocimiento")] string? BaseConocimiento,
     [property: JsonPropertyName("horarios")] string? Horarios,
     [property: JsonPropertyName("adelanto")] int? Adelanto);
+
+record WaConnectReq(
+    [property: JsonPropertyName("phoneNumberId")] string? PhoneNumberId);
 
 record ChatMessage(
     [property: JsonPropertyName("role")] string Role,

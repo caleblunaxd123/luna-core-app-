@@ -11,6 +11,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Suscripcion> Suscripciones => Set<Suscripcion>();
     public DbSet<PagoEvento> PagoEventos => Set<PagoEvento>();
     public DbSet<AgenteConfig> AgentesConfig => Set<AgenteConfig>();
+    public DbSet<Lead> Leads => Set<Lead>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

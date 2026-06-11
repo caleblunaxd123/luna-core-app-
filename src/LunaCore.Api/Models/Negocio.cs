@@ -9,5 +9,6 @@ public class Negocio
     public string Rubro { get; set; } = "estetica";
     public int PlanId { get; set; } = 1;
     public Plan? Plan { get; set; }
+    public string? WhatsappPhoneNumberId { get; set; }   // id del número de WhatsApp Cloud API conectado
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
