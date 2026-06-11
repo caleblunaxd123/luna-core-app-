@@ -17,7 +17,7 @@ EXPOSE 8080
 ENTRYPOINT ["dotnet", "LunaCore.Api.dll"]
 
 # Variables de entorno requeridas en el host (NO se hornean en la imagen):
-#   ConnectionStrings__Default   (SQL Server / Azure SQL)
+#   ConnectionStrings__Default   (PostgreSQL — p.ej. Neon: Host=...;Database=...;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true)
 #   GROQ_API_KEY
 #   Jwt__Key                     (cadena larga, >=32 chars)
 #   MercadoPago__AccessToken     (opcional, para pagos)

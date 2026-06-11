@@ -8,9 +8,12 @@ Producto SaaS de Luna IT Solutions: el **Agente de Ventas IA** con cuentas, lím
 - `src/LunaCore.Api/Migrations/` — migraciones EF (LocalDB en desarrollo).
 
 ## Correr en local
-**1) Backend** (crea la BD `LunaCore` en LocalDB y la migra solo al iniciar):
+**Base de datos: PostgreSQL.** La forma gratis y sin instalar nada es **Neon** (neon.tech): crea un proyecto, copia la *connection string* y úsala abajo. (O un Postgres local / Docker si prefieres.)
+
+**1) Backend** (migra la BD solo al iniciar):
 ```
 cd src/LunaCore.Api
+dotnet user-secrets set "ConnectionStrings:Default" "Host=...neon.tech;Database=lunacore;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
 dotnet user-secrets set "GROQ_API_KEY" "TU_KEY_DE_GROQ"
 # opcional, para activar pagos:
 dotnet user-secrets set "MercadoPago:AccessToken" "TU_ACCESS_TOKEN_MP"
@@ -59,7 +62,7 @@ Abstracción `IPaymentGateway` (`src/LunaCore.Api/Payments/`):
 
 ## 🚀 Puesta en producción (lo que requiere tus cuentas)
 El código está completo; para estar EN VIVO:
-1. **GitHub + deploy del API:** súbelo y despliega `LunaCore.Api` en Azure App Service / Railway / Render con una base **SQL Server / Azure SQL**. Configura variables: `ConnectionStrings__Default`, `GROQ_API_KEY`, `Jwt__Key`, `MercadoPago__AccessToken`, `WhatsApp__VerifyToken`, `WhatsApp__AccessToken`, `WhatsApp__PhoneNumberId`.
+1. **Deploy GRATIS del API:** base **PostgreSQL en Neon** (gratis) + API en **Render** (gratis, usa el `Dockerfile`). Conecta el repo en Render → variables de entorno: `ConnectionStrings__Default` (string de Neon), `GROQ_API_KEY`, `Jwt__Key`, `MercadoPago__AccessToken`, `WhatsApp__VerifyToken`, `WhatsApp__AccessToken`, `WhatsApp__PhoneNumberId`.
 2. **Panel:** despliega `panel/` en Netlify; en el login apunta el campo "API" a la URL pública del backend.
 3. **WhatsApp (Meta):** crea una app en developers.facebook.com → producto *WhatsApp* → obtén `AccessToken` y `PhoneNumberId`. En *Configuration → Webhook* pon `https://TU-API/api/whatsapp/webhook` y el *Verify Token* igual a `WhatsApp:VerifyToken`. Suscríbete al campo `messages`. En el panel, conecta el número con `PUT /api/whatsapp/connect`.
 4. **Pagos:** pon tu `MercadoPago:AccessToken`; el webhook ya activa el plan al aprobarse el pago.

@@ -14,7 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<AppDbContext>(o =>
-    o.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+    o.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IPasswordHasher<Negocio>, PasswordHasher<Negocio>>();
 builder.Services.AddSingleton<JwtService>();
