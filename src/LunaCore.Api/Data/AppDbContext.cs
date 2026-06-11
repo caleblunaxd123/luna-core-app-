@@ -10,11 +10,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UsoMensual> UsosMensuales => Set<UsoMensual>();
     public DbSet<Suscripcion> Suscripciones => Set<Suscripcion>();
     public DbSet<PagoEvento> PagoEventos => Set<PagoEvento>();
+    public DbSet<AgenteConfig> AgentesConfig => Set<AgenteConfig>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Negocio>().HasIndex(x => x.Email).IsUnique();
         b.Entity<UsoMensual>().HasIndex(x => new { x.NegocioId, x.Periodo }).IsUnique();
+        b.Entity<AgenteConfig>().HasIndex(x => x.NegocioId).IsUnique();
         b.Entity<Plan>().Property(p => p.PrecioMensual).HasColumnType("decimal(10,2)");
 
         b.Entity<Plan>().HasData(

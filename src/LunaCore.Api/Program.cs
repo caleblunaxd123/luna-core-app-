@@ -68,6 +68,8 @@ app.MapPost("/api/auth/register", async (RegisterReq r, AppDbContext db, IPasswo
     n.PasswordHash = hasher.HashPassword(n, r.Password);
     db.Negocios.Add(n);
     await db.SaveChangesAsync();
+    db.AgentesConfig.Add(new AgenteConfig { NegocioId = n.Id, Rol = "ventas", NombreAgente = AgentPrompt.DefaultNombre(n.Rubro) });
+    await db.SaveChangesAsync();
     return Results.Ok(new { token = jwt.Create(n), negocio = new { n.Id, n.Nombre, n.Email, n.Rubro, plan = "Free" } });
 });
 
@@ -98,7 +100,30 @@ app.MapGet("/api/me", async (ClaimsPrincipal user, AppDbContext db) =>
     });
 }).RequireAuthorization();
 
-/* ── Chat: el Agente de Ventas, con límite POR CUENTA ── */
+/* ── Configuración del empleado digital ── */
+app.MapGet("/api/agente", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var c = await db.AgentesConfig.FirstOrDefaultAsync(a => a.NegocioId == id);
+    if (c is null) return Results.NotFound();
+    return Results.Ok(new { c.Rol, c.NombreAgente, c.BaseConocimiento, c.Horarios, c.Adelanto, c.Activo });
+}).RequireAuthorization();
+
+app.MapPut("/api/agente", async (AgenteReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var c = await db.AgentesConfig.FirstOrDefaultAsync(a => a.NegocioId == id);
+    if (c is null) { c = new AgenteConfig { NegocioId = id }; db.AgentesConfig.Add(c); }
+    if (r.Rol is not null) c.Rol = r.Rol;
+    if (r.NombreAgente is not null) c.NombreAgente = r.NombreAgente;
+    if (r.BaseConocimiento is not null) c.BaseConocimiento = r.BaseConocimiento;
+    if (r.Horarios is not null) c.Horarios = r.Horarios;
+    if (r.Adelanto.HasValue) c.Adelanto = r.Adelanto.Value;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+/* ── Chat: el empleado digital, con límite POR CUENTA y config del negocio ── */
 app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbContext db, IHttpClientFactory httpFactory, IConfiguration cfg) =>
 {
     var id = NegocioId(user);
@@ -117,7 +142,7 @@ app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbCont
     if (string.IsNullOrWhiteSpace(key))
         return Results.Json(new { error = "config", message = "Falta GROQ_API_KEY (env o user-secrets)." }, statusCode: 500);
 
-    var rubro = Rubros.Get(negocio.Rubro);
+    var agente = await db.AgentesConfig.FirstOrDefaultAsync(a => a.NegocioId == id) ?? new AgenteConfig { Rol = "ventas" };
     var model = cfg["GROQ_MODEL"] ?? "llama-3.3-70b-versatile";
     var messages = req.Messages ?? new();
 
@@ -126,7 +151,7 @@ app.MapPost("/api/chat", async (ChatRequest req, ClaimsPrincipal user, AppDbCont
         model,
         temperature = 0.6,
         max_tokens = 220,
-        messages = new[] { new { role = "system", content = Rubros.BuildSystem(rubro) } }
+        messages = new[] { new { role = "system", content = AgentPrompt.Build(negocio, agente) } }
             .Concat(messages.TakeLast(12).Select(m => new { role = m.Role, content = m.Content }))
             .ToArray()
     };
@@ -201,6 +226,13 @@ record LoginReq(
 record CheckoutReq(
     [property: JsonPropertyName("planId")] int PlanId,
     [property: JsonPropertyName("gateway")] string? Gateway);
+
+record AgenteReq(
+    [property: JsonPropertyName("rol")] string? Rol,
+    [property: JsonPropertyName("nombreAgente")] string? NombreAgente,
+    [property: JsonPropertyName("baseConocimiento")] string? BaseConocimiento,
+    [property: JsonPropertyName("horarios")] string? Horarios,
+    [property: JsonPropertyName("adelanto")] int? Adelanto);
 
 record ChatMessage(
     [property: JsonPropertyName("role")] string Role,

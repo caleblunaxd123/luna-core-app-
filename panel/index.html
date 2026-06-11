@@ -22,8 +22,8 @@ h1,h2,h3{font-family:'Plus Jakarta Sans',sans-serif;color:var(--ink);letter-spac
 .btn-p{background:var(--grad);color:#fff;box-shadow:0 12px 26px -12px rgba(47,107,255,.6)}.btn-p:hover{transform:translateY(-2px)}
 .btn-g{background:#fff;color:var(--ink);border:1px solid var(--border2)}.btn-g:hover{border-color:var(--violet)}
 .btn:disabled{opacity:.5;cursor:default;transform:none}
-input,select{width:100%;padding:.7rem .85rem;border:1px solid var(--border2);border-radius:10px;font-family:inherit;font-size:.92rem;background:var(--surf2);color:var(--ink);outline:none}
-input:focus,select:focus{background:#fff;border-color:var(--violet);box-shadow:0 0 0 3px rgba(109,91,245,.16)}
+input,select,textarea{width:100%;padding:.7rem .85rem;border:1px solid var(--border2);border-radius:10px;font-family:inherit;font-size:.92rem;background:var(--surf2);color:var(--ink);outline:none}
+input:focus,select:focus,textarea:focus{background:#fff;border-color:var(--violet);box-shadow:0 0 0 3px rgba(109,91,245,.16)}
 label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.35rem;display:block}
 .card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 18px 44px -26px rgba(28,40,95,.3)}
 
@@ -144,9 +144,23 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.35rem;dis
         <button class="btn btn-p" style="width:100%;margin-top:1rem" onclick="openPlans()">Mejorar mi plan</button>
       </div>
       <div class="card pad">
-        <h3 style="font-size:1rem;margin-bottom:.6rem">Tu agente</h3>
-        <div class="row"><span>Rubro</span><b id="rubroVal">—</b></div>
-        <div class="row" style="border:0"><span>Estado</span><b style="color:#0c8f63">● Activo 24/7</b></div>
+        <h3 style="font-size:1rem;margin-bottom:.2rem">Configura tu agente</h3>
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:.9rem">Lo que pongas aquí es lo que tu agente sabrá y responderá. <b id="rubroVal" style="color:var(--ink)"></b></p>
+        <div class="fg"><label>Rol del empleado digital</label>
+          <select id="aRol">
+            <option value="ventas">Agente de Ventas</option>
+            <option value="soporte">Agente de Soporte</option>
+            <option value="cobranza">Agente de Cobranza</option>
+            <option value="rrhh">Agente de RR.HH.</option>
+            <option value="admin">Asistente Administrativo</option>
+          </select></div>
+        <div class="fg"><label>Nombre del agente</label><input id="aNombre" placeholder="Bella"></div>
+        <div class="fg"><label>Horarios de atención</label><input id="aHorarios" placeholder="Lun–Sáb 9am–7pm"></div>
+        <div class="fg"><label>Adelanto para reservar (S/)</label><input id="aAdelanto" type="number" min="0" placeholder="50"></div>
+        <div class="fg"><label>Base de conocimiento (servicios, precios, info, dirección)</label>
+          <textarea id="aBase" rows="5" style="resize:vertical" placeholder="Ej: Limpieza facial S/250. Botox S/600. Estamos en Av. Pardo 123, Miraflores. Atendemos solo con cita."></textarea></div>
+        <button class="btn btn-p" style="width:100%" onclick="saveAgente()">Guardar agente</button>
+        <div id="aMsg" style="font-size:.8rem;color:#0c8f63;margin-top:.5rem;text-align:center"></div>
       </div>
     </div>
 
@@ -233,9 +247,10 @@ async function enterApp(){
   rubroVal.textContent = RUBRO_LABEL[negocio?.rubro] || negocio?.rubro || '—';
   agenteName.textContent = 'Agente · '+(RUBRO_LABEL[negocio?.rubro]||'');
   await refreshMe();
+  await loadAgente();
   // saludo inicial
   chat.innerHTML=''; messages=[];
-  bubble('in','¡Hola! 🌙 Soy tu agente de ventas. Escríbeme como si fueras un cliente y mira cómo respondo, califico y agendo.');
+  bubble('in','¡Hola! 🌙 Soy tu agente. Configúrame a la izquierda y luego escríbeme como si fueras un cliente.');
 }
 
 async function refreshMe(){
@@ -247,6 +262,24 @@ async function refreshMe(){
   const pct = data.limite? Math.min(100, Math.round(data.usados/data.limite*100)) : 0;
   document.getElementById('barFill').style.width=pct+'%';
   document.getElementById('restante').textContent=(data.limite-data.usados)+' mensajes restantes';
+}
+
+async function loadAgente(){
+  const {res,data}=await api('/api/agente');
+  if(!res.ok) return;
+  aRol.value=data.rol||'ventas'; aNombre.value=data.nombreAgente||''; aHorarios.value=data.horarios||'';
+  aAdelanto.value=data.adelanto||0; aBase.value=data.baseConocimiento||'';
+  document.getElementById('rubroVal').textContent='Rubro: '+(RUBRO_LABEL[negocio?.rubro]||negocio?.rubro||'');
+  agenteName.textContent=(aNombre.value||'Tu agente');
+}
+async function saveAgente(){
+  const body={rol:aRol.value,nombreAgente:aNombre.value,horarios:aHorarios.value,adelanto:parseInt(aAdelanto.value||'0',10),baseConocimiento:aBase.value};
+  const m=document.getElementById('aMsg'); m.textContent='Guardando...';
+  const {res}=await api('/api/agente',{method:'PUT',body:JSON.stringify(body)});
+  if(res.ok){ m.textContent='✓ Agente guardado'; agenteName.textContent=(aNombre.value||'Tu agente');
+    chat.innerHTML=''; messages=[]; bubble('in','¡Listo! Ya guardé tu configuración. Escríbeme como un cliente y verás cómo respondo con la info de tu negocio. 🌙');
+    setTimeout(()=>m.textContent='',2500);
+  } else { m.style.color='#c0392b'; m.textContent='No se pudo guardar.'; }
 }
 
 function bubble(side,text){const d=document.createElement('div');d.className='b '+side;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;}
