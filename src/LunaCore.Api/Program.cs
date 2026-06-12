@@ -293,36 +293,3 @@ record ChatMessage(
 
 record ChatRequest(
     [property: JsonPropertyName("messages")] List<ChatMessage>? Messages);
-
-/* ── Config por rubro (se moverá a tabla AgenteConfig en el panel) ── */
-record Rubro(string Agente, string Negocio, string Cliente, string Evento, string Servicio, string Ticket, int Adelanto);
-
-static class Rubros
-{
-    static readonly Dictionary<string, Rubro> Map = new()
-    {
-        ["estetica"]     = new("Bella", "clínica de estética", "paciente", "cita", "tratamientos faciales y corporales (limpieza facial, botox, láser)", "S/ 150 a S/ 800", 50),
-        ["dental"]       = new("Sonríe", "clínica dental", "paciente", "cita", "limpieza, ortodoncia, implantes", "S/ 80 a S/ 1500", 40),
-        ["inmobiliaria"] = new("Mateo", "inmobiliaria", "interesado", "visita", "venta y alquiler de departamentos en Lima", "US$ 90k a US$ 300k", 0),
-        ["gimnasio"]     = new("Fit", "gimnasio", "interesado", "clase de prueba", "membresías, funcional, pesas y clases grupales", "S/ 120 a S/ 200 al mes", 0),
-        ["restaurante"]  = new("Sazón", "restaurante", "cliente", "reserva", "reservas de mesa y eventos", "S/ 80 a S/ 300 por persona", 0),
-        ["veterinaria"]  = new("Huellitas", "veterinaria", "cliente", "cita", "consultas, vacunas, baño y peluquería", "S/ 60 a S/ 250", 30),
-    };
-
-    public static Rubro Get(string? key) => key != null && Map.TryGetValue(key, out var r) ? r : Map["estetica"];
-
-    public static string BuildSystem(Rubro c)
-    {
-        var pago = c.Adelanto > 0
-            ? $"Para asegurar la asistencia y reducir las inasistencias, pide un adelanto de S/{c.Adelanto} por Yape para confirmar la {c.Evento} (menciona que se descuenta del total). Si el {c.Cliente} duda, explica con calidez que así le garantizas el cupo."
-            : $"Para confirmar la {c.Evento}, pide solo el nombre completo del {c.Cliente}.";
-        return string.Join("\n", new[]
-        {
-            $"Eres {c.Agente}, asistente de ventas por WhatsApp de un(a) {c.Negocio} en Lima, Perú.",
-            $"Ofreces: {c.Servicio}. Rango de precios referencial: {c.Ticket}.",
-            $"Tu objetivo es: responder al instante y con calidez, calificar al {c.Cliente} con 1 o 2 preguntas, ofrecer 2 horarios concretos y agendar la {c.Evento}. {pago}",
-            "REGLAS DE ESTILO: escribe como en WhatsApp, mensajes MUY cortos (1 a 3 frases), tono cercano y peruano, máximo un emoji por mensaje, UNA sola pregunta por turno. No inventes datos que no tengas (di que lo confirmas). No hables de temas ajenos al negocio; si ocurre, redirige amablemente a agendar.",
-            $"Es de noche y atiendes 24/7: si es oportuno, recuérdalo con naturalidad. Cuando el {c.Cliente} acepte (y, si aplica, confirme el adelanto), confirma la {c.Evento} con día, hora y un recordatorio.",
-        });
-    }
-}

@@ -1,0 +1,9 @@
+# Despliegue del PANEL (estático) en Netlify.
+# El backend .NET va aparte (Render/Railway/Azure) — ver README.
+[build]
+  publish = "panel"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
