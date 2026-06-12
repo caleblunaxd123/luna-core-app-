@@ -168,6 +168,7 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
               <option value="gimnasio">Gimnasio</option>
               <option value="restaurante">Restaurante</option>
               <option value="veterinaria">Veterinaria</option>
+              <option value="tienda">Tienda / venta online (TikTok, IG)</option>
             </select>
           </div>
           <div class="fg"><label>Email</label><input id="rEmail" type="email" placeholder="tu@negocio.com"></div>
@@ -211,6 +212,7 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
             <option value="cobranza">Agente de Cobranza</option>
             <option value="rrhh">Agente de RR.HH.</option>
             <option value="admin">Asistente Administrativo</option>
+            <option value="pedidos">Agente de Pedidos (tienda / venta online)</option>
           </select></div>
         <div class="fg"><label>Nombre del agente</label><input id="aNombre" placeholder="Bella"></div>
         <div class="fg"><label>Horarios de atención</label><input id="aHorarios" placeholder="Lun–Sáb 9am–7pm"></div>
@@ -295,7 +297,7 @@ function onAuth(data){
 function logout(){ token=''; negocio=null; localStorage.removeItem('luna_token'); localStorage.removeItem('luna_negocio');
   document.getElementById('app').classList.add('hidden'); document.getElementById('auth').classList.remove('hidden'); }
 
-const RUBRO_LABEL={estetica:'Clínica estética',dental:'Clínica dental',inmobiliaria:'Inmobiliaria',gimnasio:'Gimnasio',restaurante:'Restaurante',veterinaria:'Veterinaria'};
+const RUBRO_LABEL={estetica:'Clínica estética',dental:'Clínica dental',inmobiliaria:'Inmobiliaria',gimnasio:'Gimnasio',restaurante:'Restaurante',veterinaria:'Veterinaria',tienda:'Tienda / venta online'};
 
 async function enterApp(){
   document.getElementById('auth').classList.add('hidden');

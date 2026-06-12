@@ -13,19 +13,21 @@ public static class AgentPrompt
         ["estetica"] = "clínica de estética", ["dental"] = "clínica dental",
         ["inmobiliaria"] = "inmobiliaria", ["gimnasio"] = "gimnasio",
         ["restaurante"] = "restaurante", ["veterinaria"] = "veterinaria",
+        ["tienda"] = "tienda que vende productos por TikTok, Instagram y WhatsApp",
     };
 
     static readonly Dictionary<string, string> Roles = new()
     {
         ["ventas"] = "agente de ventas", ["soporte"] = "agente de soporte",
         ["cobranza"] = "agente de cobranza", ["rrhh"] = "agente de RR.HH.",
-        ["admin"] = "asistente administrativo",
+        ["admin"] = "asistente administrativo", ["pedidos"] = "asesor de ventas y pedidos",
     };
 
     public static string DefaultNombre(string rubro) => rubro switch
     {
         "estetica" => "Bella", "dental" => "Sonríe", "inmobiliaria" => "Mateo",
         "gimnasio" => "Fit", "restaurante" => "Sazón", "veterinaria" => "Huellitas",
+        "tienda" => "Sofi",
         _ => "Luna"
     };
 
@@ -37,6 +39,8 @@ public static class AgentPrompt
         "cobranza" => "Tu objetivo: recuerda pagos pendientes con tono respetuoso y empático, ofrece los medios de pago y registra el compromiso de pago (en qué fecha pagará).",
         "rrhh" => "Tu objetivo: atiende a los candidatos, preselecciona con 2 o 3 preguntas clave del puesto y coordina una entrevista.",
         "admin" => "Tu objetivo: atiende consultas administrativas, toma los datos necesarios y registra o deriva la solicitud.",
+        "pedidos" => "Tu objetivo: responde precio, stock y detalles del producto con calidez; toma el pedido (producto, cantidad, talla/color); pide los datos de envío (nombre, dirección o agencia, teléfono); indica el pago por Yape al número del negocio"
+                     + (adelanto > 0 ? $" (puedes pedir un adelanto de S/{adelanto} por Yape para reservar el stock)" : "") + ". Cierra confirmando el total y el tiempo de entrega o envío.",
         _ => "Tu objetivo: atiende al cliente con calidez y resuelve su consulta."
     };
 
