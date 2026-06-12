@@ -222,6 +222,13 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
         <button class="btn btn-p" style="width:100%" onclick="saveAgente()">Guardar agente</button>
         <div id="aMsg" style="font-size:.8rem;color:#0c8f63;margin-top:.6rem;text-align:center"></div>
       </div>
+      <div class="card pad">
+        <h3 class="card-title">Conectar WhatsApp</h3>
+        <p class="card-sub">Pega el <b>Phone number ID</b> de tu número de WhatsApp (de Meta) para que el agente atienda ahí.</p>
+        <div class="fg"><label>Phone number ID</label><input id="waPhoneId" placeholder="Ej: 123456789012345"></div>
+        <button class="btn btn-g" style="width:100%" onclick="connectWa()">Conectar WhatsApp</button>
+        <div id="waMsg" style="font-size:.8rem;color:#0c8f63;margin-top:.6rem;text-align:center"></div>
+      </div>
     </div>
 
     <div class="card chat-card">
@@ -340,6 +347,13 @@ async function saveAgente(){
     chat.innerHTML=''; messages=[]; bubble('in','¡Listo! Ya guardé tu configuración. Escríbeme como un cliente y verás cómo respondo con la info de tu negocio. 🌙');
     setTimeout(()=>m.textContent='',2500);
   } else { m.style.color='#c0392b'; m.textContent='No se pudo guardar.'; }
+}
+
+async function connectWa(){
+  const m=document.getElementById('waMsg'); m.textContent='Conectando...';
+  const {res}=await api('/api/whatsapp/connect',{method:'PUT',body:JSON.stringify({phoneNumberId:waPhoneId.value.trim()})});
+  if(res.ok){ m.style.color='#0c8f63'; m.textContent='✓ WhatsApp conectado'; setTimeout(()=>m.textContent='',2500); }
+  else { m.style.color='#c0392b'; m.textContent='No se pudo conectar.'; }
 }
 
 function bubble(side,text){const d=document.createElement('div');d.className='b '+side;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;}
