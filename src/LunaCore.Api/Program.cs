@@ -201,7 +201,16 @@ app.MapPost("/api/whatsapp/webhook", async (HttpRequest httpReq, AppDbContext db
         var phoneNumberId = value.GetProperty("metadata").GetProperty("phone_number_id").GetString();
         var msg = msgs[0];
         var from = msg.GetProperty("from").GetString() ?? "";
-        var text = msg.TryGetProperty("text", out var t) ? (t.GetProperty("body").GetString() ?? "") : "";
+        var tipo = msg.TryGetProperty("type", out var ty) ? ty.GetString() : "text";
+        // El cliente del live suele mandar una CAPTURA (imagen); el modelo no la ve, pero lo hacemos reaccionar bien.
+        var text = tipo switch
+        {
+            "text" => msg.GetProperty("text").GetProperty("body").GetString() ?? "",
+            "image" => "[El cliente envió una FOTO/CAPTURA de una prenda del live. Confírmale con calidez que la recibiste y pregúntale qué talla y color desea.]",
+            "audio" or "voice" => "[El cliente envió una nota de voz. Pídele amablemente que te escriba su consulta por texto.]",
+            _ => "[El cliente envió un mensaje no compatible. Pídele que escriba su consulta.]"
+        };
+        var leadMsg = tipo == "text" ? text : $"[{tipo}]";
 
         var negocio = await db.Negocios.Include(n => n.Plan).FirstOrDefaultAsync(n => n.WhatsappPhoneNumberId == phoneNumberId);
         if (negocio is null) return Results.Ok();
@@ -211,7 +220,7 @@ app.MapPost("/api/whatsapp/webhook", async (HttpRequest httpReq, AppDbContext db
         if (uso is null) { uso = new UsoMensual { NegocioId = negocio.Id, Periodo = periodo }; db.UsosMensuales.Add(uso); }
         var limite = negocio.Plan?.LimiteMensajes ?? 50;
 
-        db.Leads.Add(new Lead { NegocioId = negocio.Id, Contacto = from, Mensaje = text });
+        db.Leads.Add(new Lead { NegocioId = negocio.Id, Contacto = from, Mensaje = leadMsg });
 
         if (uso.Mensajes < limite)
         {

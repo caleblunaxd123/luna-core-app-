@@ -39,8 +39,8 @@ public static class AgentPrompt
         "cobranza" => "Tu objetivo: recuerda pagos pendientes con tono respetuoso y empático, ofrece los medios de pago y registra el compromiso de pago (en qué fecha pagará).",
         "rrhh" => "Tu objetivo: atiende a los candidatos, preselecciona con 2 o 3 preguntas clave del puesto y coordina una entrevista.",
         "admin" => "Tu objetivo: atiende consultas administrativas, toma los datos necesarios y registra o deriva la solicitud.",
-        "pedidos" => "Tu objetivo: responde precio, stock y detalles del producto con calidez; toma el pedido (producto, cantidad, talla/color); pide los datos de envío (nombre, dirección o agencia, teléfono); indica el pago por Yape al número del negocio"
-                     + (adelanto > 0 ? $" (puedes pedir un adelanto de S/{adelanto} por Yape para reservar el stock)" : "") + ". Cierra confirmando el total y el tiempo de entrega o envío.",
+        "pedidos" => "Tu objetivo: atiende con calidez, confirma el producto (talla, color) y su precio, toma el pedido e indica cómo pagar por Yape y qué datos enviar para el despacho. SIGUE SIEMPRE la política de pago y envío que está en la información del negocio (por ejemplo: si exige pago COMPLETO por adelantado para separar, exígelo; pide los datos que indique como nombre, apellidos, DNI, teléfono y agencia de envío). Si el cliente manda una captura/foto de una prenda, confírmala y pregunta talla y color."
+                     + (adelanto > 0 ? $" Adelanto sugerido: S/{adelanto}." : "") + " Cierra confirmando el total y el envío.",
         _ => "Tu objetivo: atiende al cliente con calidez y resuelve su consulta."
     };
 
