@@ -235,6 +235,84 @@ app.MapPut("/api/stock", async (StockReq r, ClaimsPrincipal user, AppDbContext d
     return Results.Ok(new { stock = n.StockRestante });
 }).RequireAuthorization();
 
+/* ── Catálogo / mini-web del vendedor ── */
+app.MapGet("/api/productos", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var prods = await db.Productos.Where(p => p.NegocioId == id).OrderBy(p => p.Orden).ThenByDescending(p => p.Id)
+        .Select(p => new { p.Id, p.Nombre, p.Descripcion, p.Precio, p.ImagenData, p.Activo }).ToListAsync();
+    return Results.Ok(prods);
+}).RequireAuthorization();
+
+app.MapPost("/api/productos", async (ProductoReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    if (string.IsNullOrWhiteSpace(r.Nombre)) return Results.BadRequest(new { error = "El nombre es obligatorio." });
+    var p = new Producto { NegocioId = id, Nombre = r.Nombre.Trim(), Descripcion = r.Descripcion, Precio = r.Precio, ImagenData = r.ImagenData, Activo = r.Activo ?? true };
+    db.Productos.Add(p);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { id = p.Id });
+}).RequireAuthorization();
+
+app.MapPut("/api/productos/{prodId:int}", async (int prodId, ProductoReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var p = await db.Productos.FirstOrDefaultAsync(x => x.Id == prodId && x.NegocioId == id);
+    if (p is null) return Results.NotFound();
+    if (!string.IsNullOrWhiteSpace(r.Nombre)) p.Nombre = r.Nombre.Trim();
+    p.Descripcion = r.Descripcion;
+    p.Precio = r.Precio;
+    if (r.Activo.HasValue) p.Activo = r.Activo.Value;
+    if (!string.IsNullOrEmpty(r.ImagenData)) p.ImagenData = r.ImagenData;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapDelete("/api/productos/{prodId:int}", async (int prodId, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var p = await db.Productos.FirstOrDefaultAsync(x => x.Id == prodId && x.NegocioId == id);
+    if (p is null) return Results.NotFound();
+    db.Productos.Remove(p);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapGet("/api/catalogo", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var n = await db.Negocios.FindAsync(id);
+    if (n is null) return Results.Unauthorized();
+    return Results.Ok(new { n.Slug, n.WhatsappNumero, n.Nombre });
+}).RequireAuthorization();
+
+app.MapPut("/api/catalogo", async (CatalogoReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var n = await db.Negocios.FindAsync(id);
+    if (n is null) return Results.Unauthorized();
+    if (!string.IsNullOrWhiteSpace(r.Slug))
+    {
+        var slug = new string(r.Slug.Trim().ToLowerInvariant().Replace(' ', '-').Where(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+        if (slug.Length < 2) return Results.BadRequest(new { error = "El enlace debe tener al menos 2 caracteres." });
+        if (await db.Negocios.AnyAsync(x => x.Slug == slug && x.Id != id)) return Results.Conflict(new { error = "Ese enlace ya está en uso, elige otro." });
+        n.Slug = slug;
+    }
+    if (r.WhatsappNumero is not null) n.WhatsappNumero = new string(r.WhatsappNumero.Where(char.IsDigit).ToArray());
+    await db.SaveChangesAsync();
+    return Results.Ok(new { n.Slug, n.WhatsappNumero });
+}).RequireAuthorization();
+
+// Catálogo público (sin login)
+app.MapGet("/api/catalogo/{slug}", async (string slug, AppDbContext db) =>
+{
+    var n = await db.Negocios.FirstOrDefaultAsync(x => x.Slug == slug);
+    if (n is null) return Results.NotFound();
+    var prods = await db.Productos.Where(p => p.NegocioId == n.Id && p.Activo).OrderBy(p => p.Orden).ThenByDescending(p => p.Id)
+        .Select(p => new { p.Id, p.Nombre, p.Descripcion, p.Precio, p.ImagenData }).ToListAsync();
+    return Results.Ok(new { nombre = n.Nombre, whatsapp = n.WhatsappNumero, productos = prods });
+});
+
 /* ── WhatsApp: conectar el número del negocio (guarda phone_number_id) ── */
 app.MapPut("/api/whatsapp/connect", async (WaConnectReq r, ClaimsPrincipal user, AppDbContext db) =>
 {
@@ -388,6 +466,17 @@ record VentaUpdateReq(
     [property: JsonPropertyName("nota")] string? Nota);
 
 record StockReq([property: JsonPropertyName("restante")] int Restante);
+
+record ProductoReq(
+    [property: JsonPropertyName("nombre")] string? Nombre,
+    [property: JsonPropertyName("descripcion")] string? Descripcion,
+    [property: JsonPropertyName("precio")] decimal Precio,
+    [property: JsonPropertyName("imagenData")] string? ImagenData,
+    [property: JsonPropertyName("activo")] bool? Activo);
+
+record CatalogoReq(
+    [property: JsonPropertyName("slug")] string? Slug,
+    [property: JsonPropertyName("whatsappNumero")] string? WhatsappNumero);
 
 record ChatMessage(
     [property: JsonPropertyName("role")] string Role,

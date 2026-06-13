@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catálogo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--violet:#6d5bf5;--electric:#2f6bff;--cyan:#15c8e0;--ink:#0b1024;--muted:#5b6485;--faint:#8a92ad;
+  --page:#f6f8fd;--surf:#fff;--border:#e6eaf4;--grad:linear-gradient(120deg,var(--electric),var(--violet) 55%,var(--cyan));--wa:#25d366;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+.head{background:var(--ink);color:#fff;padding:2.4rem 1.25rem;text-align:center;position:relative;overflow:hidden}
+.head::before{content:'';position:absolute;inset:0;background:radial-gradient(40rem 18rem at 50% -30%,rgba(109,91,245,.35),transparent 70%)}
+.head h1{font-family:'Plus Jakarta Sans';font-weight:800;font-size:clamp(1.6rem,4vw,2.3rem);position:relative}
+.head p{color:#cfd6ef;margin-top:.4rem;position:relative;font-size:.95rem}
+.wrap{max-width:1080px;margin:0 auto;padding:1.6rem 1.25rem 4rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:1.1rem}
+.card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 14px 34px -24px rgba(28,40,95,.3);display:flex;flex-direction:column;transition:transform .25s}
+.card:hover{transform:translateY(-4px)}
+.card .img{width:100%;aspect-ratio:1;object-fit:cover;background:#eef1fb;display:block}
+.noimg{width:100%;aspect-ratio:1;display:grid;place-items:center;color:var(--faint);background:#eef1fb;font-size:.8rem}
+.card .b{padding:.85rem;display:flex;flex-direction:column;gap:.25rem;flex:1}
+.card .n{font-weight:700;font-size:.95rem;line-height:1.25}
+.card .d{font-size:.8rem;color:var(--muted);flex:1}
+.card .p{font-family:'Plus Jakarta Sans';font-weight:800;font-size:1.15rem;color:var(--violet)}
+.wabtn{display:flex;align-items:center;justify-content:center;gap:.4rem;background:var(--wa);color:#04210f;font-weight:700;font-size:.86rem;text-decoration:none;padding:.6rem;border-radius:0 0 0 0;margin-top:.4rem;border-radius:10px}
+.empty{text-align:center;color:var(--muted);padding:3rem 1rem}
+.foot{text-align:center;color:var(--faint);font-size:.78rem;padding:2rem 1rem}
+.foot b{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="head"><h1 id="storeName">Cargando…</h1><p id="storeSub">catálogo</p></div>
+<div class="wrap"><div class="grid" id="grid"></div><div id="empty"></div></div>
+<div class="foot">Hecho con <b>Luna Core</b> · tu catálogo en minutos</div>
+
+<script>
+const API='https://luna-core-api.onrender.com';
+const slug=new URLSearchParams(location.search).get('t');
+const grid=document.getElementById('grid');
+
+function waLink(num,nombre,precio){
+  const txt=encodeURIComponent(`Hola! Me interesa: ${nombre} (S/ ${Number(precio).toFixed(2)}). ¿Está disponible?`);
+  return `https://wa.me/${num}?text=${txt}`;
+}
+async function load(){
+  if(!slug){ document.getElementById('storeName').textContent='Catálogo no encontrado'; return; }
+  try{
+    const r=await fetch(`${API}/api/catalogo/${encodeURIComponent(slug)}`);
+    if(!r.ok){ document.getElementById('storeName').textContent='Catálogo no encontrado'; document.getElementById('storeSub').textContent=''; return; }
+    const data=await r.json();
+    document.title=data.nombre||'Catálogo';
+    document.getElementById('storeName').textContent=data.nombre||'Catálogo';
+    document.getElementById('storeSub').textContent=data.whatsapp?'Pide por WhatsApp 💬':'catálogo';
+    if(!data.productos||!data.productos.length){ document.getElementById('empty').innerHTML='<div class="empty">Aún no hay productos publicados.</div>'; return; }
+    data.productos.forEach(p=>{
+      const card=document.createElement('div'); card.className='card';
+      const img=p.imagenData?`<img class="img" src="${p.imagenData}" alt="">`:'<div class="noimg">sin foto</div>';
+      const wa=data.whatsapp?`<a class="wabtn" target="_blank" href="${waLink(data.whatsapp,p.nombre,p.precio)}">💬 Pedir por WhatsApp</a>`:'';
+      card.innerHTML=img+`<div class="b"><div class="n">${p.nombre}</div><div class="d">${p.descripcion||''}</div><div class="p">S/ ${Number(p.precio).toFixed(2)}</div>${wa}</div>`;
+      grid.appendChild(card);
+    });
+  }catch(e){ document.getElementById('storeName').textContent='No se pudo cargar el catálogo'; }
+}
+load();
+</script>
+</body>
+</html>

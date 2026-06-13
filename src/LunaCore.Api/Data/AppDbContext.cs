@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AgenteConfig> AgentesConfig => Set<AgenteConfig>();
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<Venta> Ventas => Set<Venta>();
+    public DbSet<Producto> Productos => Set<Producto>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -22,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<Plan>().Property(p => p.PrecioMensual).HasColumnType("decimal(10,2)");
         b.Entity<Venta>().Property(v => v.Monto).HasColumnType("decimal(10,2)");
         b.Entity<Venta>().HasIndex(v => new { v.NegocioId, v.CreatedAt });
+        b.Entity<Producto>().Property(p => p.Precio).HasColumnType("decimal(10,2)");
+        b.Entity<Negocio>().HasIndex(x => x.Slug).IsUnique();
 
         b.Entity<Plan>().HasData(
             new Plan { Id = 1, Nombre = "Free",    PrecioMensual = 0,   LimiteMensajes = 50 },
