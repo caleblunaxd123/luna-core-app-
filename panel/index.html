@@ -120,6 +120,42 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
 .plan:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:var(--shadow-xs)}
 .plan b{font-family:'Plus Jakarta Sans'}
 .plan .pr{font-weight:800;color:var(--ink);font-family:'Plus Jakarta Sans'}
+
+/* ░░ CAJA EN VIVO ░░ */
+#caja{padding-bottom:3.5rem}
+.caja-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:.6rem}
+.caja-head h2{font-size:1.5rem}
+.caja-top{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:1rem;margin-bottom:1.2rem}
+@media(max-width:760px){.caja-top{grid-template-columns:1fr}}
+.cstat{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem}
+.cstat .lab{font-size:.8rem;color:var(--muted);font-weight:600}
+.cbig{font-family:'Plus Jakarta Sans';font-weight:800;line-height:1;margin-top:.45rem;color:var(--ink);font-size:2.1rem}
+.cstat.total .cbig{font-size:clamp(2.6rem,6vw,4rem);background:linear-gradient(120deg,var(--electric2),var(--violet2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stockbtns{display:flex;gap:.4rem;margin-top:.7rem;align-items:center}
+.stockbtns button{width:38px;height:38px;border-radius:11px;border:1px solid var(--border2);background:#fff;font-weight:800;font-size:1.1rem;cursor:pointer;color:var(--ink)}
+.addbar{display:flex;gap:.7rem;align-items:center;background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem;margin-bottom:1.3rem;flex-wrap:wrap}
+.addbar input[type=number]{max-width:240px;font-size:1.15rem;font-weight:700}
+.addbar .chk{font-size:.82rem;color:var(--muted);display:flex;align-items:center;gap:.4rem;width:auto;margin:0}
+.addbar .chk input{width:auto}
+.vrow{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:.8rem;align-items:center;background:#fff;border:1px solid var(--border);border-radius:13px;padding:.75rem .95rem;margin-bottom:.55rem;box-shadow:var(--shadow-xs)}
+.vmonto{font-family:'Plus Jakarta Sans';font-weight:800;font-size:1.2rem;color:var(--ink)}
+.vmeta{display:flex;flex-direction:column;font-size:.74rem;color:var(--muted);gap:.1rem}
+.vbadge{font-size:.72rem;font-weight:700;border-radius:50px;padding:.32rem .75rem;border:1px solid #e8c200;background:#fff7df;color:#9a7600;cursor:pointer;white-space:nowrap}
+.vbadge.ok{border-color:#13a36b;background:#e7f7ef;color:#0c8f63}
+.vact{background:none;border:0;cursor:pointer;font-size:1rem;padding:.3rem;border-radius:8px}
+.vact:hover{background:var(--surf2)}
+@media(max-width:760px){.vrow{grid-template-columns:auto 1fr auto}.vrow .vact{display:none}}
+/* etiqueta imprimible (rótulo) */
+#printArea{display:none}
+@media print{
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{display:block;position:absolute;left:0;top:0;width:100%}
+  .lbl{border:2px solid #000;border-radius:8px;padding:18px;max-width:420px;margin:18px;font-family:Arial,sans-serif;color:#000}
+  .lbl-h{font-weight:800;font-size:13px;letter-spacing:.04em;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px}
+  .lbl-row{font-size:16px;margin:6px 0}
+  .lbl-foot{font-size:11px;margin-top:12px;border-top:1px dashed #000;padding-top:6px}
+}
 </style>
 </head>
 <body>
@@ -187,12 +223,13 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
   <div class="top">
     <div class="brand"><div class="logo" style="width:34px;height:34px;font-size:1rem">L</div><b>Luna Core</b><span class="chip">Panel</span></div>
     <div style="display:flex;align-items:center;gap:1rem">
+      <button class="btn btn-g" id="navCaja" onclick="showCaja()">🧮 Caja en vivo</button>
       <div style="text-align:right"><div id="whoName" style="font-weight:600;font-size:.9rem;color:var(--ink)"></div><div class="who" id="whoEmail"></div></div>
       <button class="btn btn-g" onclick="logout()">Salir</button>
     </div>
   </div>
 
-  <div class="grid">
+  <div class="grid" id="mainPanel">
     <div style="display:flex;flex-direction:column;gap:1.5rem">
       <div class="card pad">
         <span class="pill" id="planPill">Plan Free</span>
@@ -238,7 +275,58 @@ label{font-size:.8rem;font-weight:600;color:var(--ink2);margin-bottom:.4rem;disp
       <div class="chat-in"><input id="chatInput" placeholder="Escribe como un cliente..." onkeydown="if(event.key==='Enter')sendChat()"><button class="send" onclick="sendChat()">➤</button></div>
     </div>
   </div>
+
+  <!-- ░░ CAJA EN VIVO ░░ -->
+  <div id="caja" class="hidden">
+    <div class="caja-head">
+      <h2>🧮 Caja en vivo <span style="font-weight:400;color:var(--muted);font-size:.9rem">· hoy</span></h2>
+      <button class="btn btn-g" onclick="showPanel()">← Volver al panel</button>
+    </div>
+
+    <div class="caja-top">
+      <div class="cstat total"><div class="lab">Vendido hoy</div><div class="cbig" id="cajaTotal">S/ 0.00</div></div>
+      <div class="cstat"><div class="lab">Ventas</div><div class="cbig" id="cajaCount">0</div></div>
+      <div class="cstat"><div class="lab">Stock restante</div><div class="cbig" id="cajaStock">0</div>
+        <div class="stockbtns"><button onclick="stockAdj(-1)">−</button><button onclick="stockAdj(1)">+</button><button style="width:auto;padding:0 .7rem;font-size:.8rem" onclick="setStock()">Editar</button></div>
+      </div>
+    </div>
+
+    <div class="addbar">
+      <input id="cajaMonto" type="number" step="0.01" min="0" placeholder="Monto del yapeo (S/)" onkeydown="if(event.key==='Enter')addVenta()">
+      <button class="btn btn-p" onclick="addVenta()">+ Registrar venta</button>
+      <label class="chk"><input type="checkbox" id="cajaDescontar" checked> descontar 1 del stock</label>
+    </div>
+
+    <div id="cajaList"></div>
+  </div>
 </div>
+
+<!-- ░░ MODAL ETIQUETA ░░ -->
+<div id="labelModal" class="modal hidden">
+  <div class="card">
+    <h2>🏷️ Rótulo de envío</h2>
+    <p style="color:var(--muted);font-size:.86rem;margin:.3rem 0 1rem">Datos para pegar en el paquete (agencia Shalom). Edita y luego imprime.</p>
+    <div class="fg"><label>Nombre y apellidos</label><input id="lblCliente" placeholder="María Pérez Gómez"></div>
+    <div class="fg"><label>DNI</label><input id="lblDni" placeholder="12345678"></div>
+    <div class="fg"><label>Teléfono</label><input id="lblTel" placeholder="999 888 777"></div>
+    <div class="fg"><label>Agencia de destino (la más cercana al cliente)</label><input id="lblAgencia" placeholder="Shalom - Arequipa, Av. ... "></div>
+    <div style="display:flex;gap:.6rem;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn btn-g" onclick="closeLabel()">Cerrar</button>
+      <button class="btn btn-g" onclick="saveLabel()">Guardar</button>
+      <button class="btn btn-p" onclick="printLabel()">🖨️ Imprimir etiqueta</button>
+    </div>
+  </div>
+</div>
+
+<!-- área imprimible (rótulo) -->
+<div id="printArea"><div class="lbl">
+  <div class="lbl-h">ENVÍO · AGENCIA SHALOM</div>
+  <div class="lbl-row"><b>DESTINATARIO:</b> <span id="plCliente"></span></div>
+  <div class="lbl-row" id="plDni"></div>
+  <div class="lbl-row" id="plTel"></div>
+  <div class="lbl-row"><b>AGENCIA DESTINO:</b> <span id="plAgencia"></span></div>
+  <div class="lbl-foot">Remite: <span id="plRemite"></span> · vía Luna Core</div>
+</div></div>
 
 <!-- ░░ MODAL PLANES ░░ -->
 <div id="plansModal" class="modal hidden">
@@ -395,6 +483,58 @@ async function subscribe(planId,nombre){
     if(res.ok && data?.url){ window.location.href=data.url; return; }
     alert(data?.message || ('Para activar pagos falta configurar las credenciales de MercadoPago en el servidor. (Plan elegido: '+nombre+')'));
   }catch(e){ alert('Sin conexión con el servidor.'); }
+}
+
+/* ── Caja en vivo ── */
+let cajaTimer=null, currentLabelId=null;
+function showCaja(){ document.getElementById('mainPanel').classList.add('hidden'); document.getElementById('caja').classList.remove('hidden'); loadCaja(); if(cajaTimer)clearInterval(cajaTimer); cajaTimer=setInterval(loadCaja,8000); }
+function showPanel(){ document.getElementById('caja').classList.add('hidden'); document.getElementById('mainPanel').classList.remove('hidden'); if(cajaTimer){clearInterval(cajaTimer);cajaTimer=null;} }
+async function loadCaja(){
+  const {res,data}=await api('/api/ventas/hoy'); if(!res.ok) return;
+  document.getElementById('cajaTotal').textContent='S/ '+Number(data.total||0).toFixed(2);
+  document.getElementById('cajaCount').textContent=data.count||0;
+  document.getElementById('cajaStock').textContent=data.stock||0;
+  const list=document.getElementById('cajaList'); list.innerHTML='';
+  if(!data.ventas||!data.ventas.length){ list.innerHTML='<div style="color:var(--faint);text-align:center;padding:1.5rem">Aún no hay ventas hoy. Registra el primer yapeo 👆</div>'; return; }
+  data.ventas.forEach(v=>{
+    const hora=new Date(v.createdAt).toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    const conf=v.estado==='confirmado';
+    const meta=(v.origen==='whatsapp'?'WhatsApp · ':'')+hora+(v.cliente?(' · '+v.cliente):'');
+    const row=document.createElement('div'); row.className='vrow';
+    row.innerHTML=`<div class="vmonto">S/ ${Number(v.monto).toFixed(2)}</div>
+      <div class="vmeta"><span>${meta}</span>${v.agencia?('<span>📦 '+v.agencia+'</span>'):''}</div>
+      <button class="vbadge ${conf?'ok':''}">${conf?'✓ Pagado':'Pendiente'}</button>
+      <button class="vact" title="Rótulo">🏷️</button>
+      <button class="vact" title="Borrar">🗑️</button>`;
+    const btns=row.querySelectorAll('button');
+    btns[0].onclick=()=>toggleEstado(v.id, conf?'pendiente':'confirmado');
+    btns[1].onclick=()=>openLabel(v);
+    btns[2].onclick=()=>delVenta(v.id);
+    list.appendChild(row);
+  });
+}
+async function addVenta(){
+  const inp=document.getElementById('cajaMonto'); const monto=parseFloat(inp.value);
+  if(!monto||monto<=0){ inp.focus(); return; }
+  const desc=document.getElementById('cajaDescontar').checked;
+  await api('/api/ventas',{method:'POST',body:JSON.stringify({monto,descontarStock:desc})});
+  inp.value=''; inp.focus(); loadCaja();
+}
+async function toggleEstado(id,nuevo){ await api('/api/ventas/'+id,{method:'PUT',body:JSON.stringify({estado:nuevo})}); loadCaja(); }
+async function delVenta(id){ if(!confirm('¿Borrar esta venta?')) return; await api('/api/ventas/'+id,{method:'DELETE'}); loadCaja(); }
+async function setStock(){ const v=parseInt(prompt('Stock restante (prendas):', document.getElementById('cajaStock').textContent)); if(isNaN(v)) return; await api('/api/stock',{method:'PUT',body:JSON.stringify({restante:v})}); loadCaja(); }
+async function stockAdj(d){ const cur=parseInt(document.getElementById('cajaStock').textContent||'0'); await api('/api/stock',{method:'PUT',body:JSON.stringify({restante:Math.max(0,cur+d)})}); loadCaja(); }
+function openLabel(v){ currentLabelId=v.id; lblCliente.value=v.cliente||''; lblDni.value=v.dni||''; lblTel.value=v.telefono||''; lblAgencia.value=v.agencia||''; document.getElementById('labelModal').classList.remove('hidden'); }
+function closeLabel(){ document.getElementById('labelModal').classList.add('hidden'); }
+async function saveLabel(){ if(!currentLabelId) return; await api('/api/ventas/'+currentLabelId,{method:'PUT',body:JSON.stringify({cliente:lblCliente.value,dni:lblDni.value,telefono:lblTel.value,agencia:lblAgencia.value})}); loadCaja(); closeLabel(); }
+function printLabel(){
+  document.getElementById('plCliente').textContent=lblCliente.value||'—';
+  document.getElementById('plDni').textContent='DNI: '+(lblDni.value||'—');
+  document.getElementById('plTel').textContent='Tel: '+(lblTel.value||'—');
+  document.getElementById('plAgencia').textContent=lblAgencia.value||'—';
+  document.getElementById('plRemite').textContent=(negocio&&negocio.nombre)||'Mi tienda';
+  if(currentLabelId) api('/api/ventas/'+currentLabelId,{method:'PUT',body:JSON.stringify({cliente:lblCliente.value,dni:lblDni.value,telefono:lblTel.value,agencia:lblAgencia.value})});
+  setTimeout(()=>window.print(),150);
 }
 
 // auto-login si hay token

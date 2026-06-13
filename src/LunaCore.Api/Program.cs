@@ -166,6 +166,75 @@ app.MapGet("/api/leads", async (ClaimsPrincipal user, AppDbContext db) =>
     return Results.Ok(leads);
 }).RequireAuthorization();
 
+/* ── Caja en vivo (ventas del día) ── */
+app.MapPost("/api/ventas", async (VentaReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    if (r.Monto <= 0) return Results.BadRequest(new { error = "Monto inválido." });
+    var venta = new Venta { NegocioId = id, Monto = r.Monto, Origen = "manual", Nota = r.Nota,
+        Cliente = r.Cliente, Dni = r.Dni, Telefono = r.Telefono, Agencia = r.Agencia };
+    db.Ventas.Add(venta);
+    if (r.DescontarStock == true)
+    {
+        var n = await db.Negocios.FindAsync(id);
+        if (n is not null && n.StockRestante > 0) n.StockRestante--;
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true, id = venta.Id });
+}).RequireAuthorization();
+
+app.MapPut("/api/ventas/{ventaId:int}", async (int ventaId, VentaUpdateReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var v = await db.Ventas.FirstOrDefaultAsync(x => x.Id == ventaId && x.NegocioId == id);
+    if (v is null) return Results.NotFound();
+    if (r.Monto is > 0) v.Monto = r.Monto.Value;
+    if (r.Estado is not null) v.Estado = r.Estado;
+    if (r.Cliente is not null) v.Cliente = r.Cliente;
+    if (r.Dni is not null) v.Dni = r.Dni;
+    if (r.Telefono is not null) v.Telefono = r.Telefono;
+    if (r.Agencia is not null) v.Agencia = r.Agencia;
+    if (r.Nota is not null) v.Nota = r.Nota;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapGet("/api/ventas/hoy", async (ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var startUtc = DateTime.UtcNow.AddHours(-5).Date.AddHours(5); // medianoche de Lima (UTC-5) en UTC
+    var ventas = await db.Ventas.Where(v => v.NegocioId == id && v.CreatedAt >= startUtc)
+        .OrderByDescending(v => v.CreatedAt).ToListAsync();
+    var n = await db.Negocios.FindAsync(id);
+    return Results.Ok(new
+    {
+        total = ventas.Sum(v => v.Monto),
+        count = ventas.Count,
+        stock = n?.StockRestante ?? 0,
+        ventas = ventas.Take(60).Select(v => new { v.Id, v.Monto, v.Origen, v.Estado, v.Nota, v.Cliente, v.Dni, v.Telefono, v.Agencia, v.CreatedAt })
+    });
+}).RequireAuthorization();
+
+app.MapDelete("/api/ventas/{ventaId:int}", async (int ventaId, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var v = await db.Ventas.FirstOrDefaultAsync(x => x.Id == ventaId && x.NegocioId == id);
+    if (v is null) return Results.NotFound();
+    db.Ventas.Remove(v);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { ok = true });
+}).RequireAuthorization();
+
+app.MapPut("/api/stock", async (StockReq r, ClaimsPrincipal user, AppDbContext db) =>
+{
+    var id = NegocioId(user);
+    var n = await db.Negocios.FindAsync(id);
+    if (n is null) return Results.Unauthorized();
+    n.StockRestante = Math.Max(0, r.Restante);
+    await db.SaveChangesAsync();
+    return Results.Ok(new { stock = n.StockRestante });
+}).RequireAuthorization();
+
 /* ── WhatsApp: conectar el número del negocio (guarda phone_number_id) ── */
 app.MapPut("/api/whatsapp/connect", async (WaConnectReq r, ClaimsPrincipal user, AppDbContext db) =>
 {
@@ -299,6 +368,26 @@ record AgenteReq(
 
 record WaConnectReq(
     [property: JsonPropertyName("phoneNumberId")] string? PhoneNumberId);
+
+record VentaReq(
+    [property: JsonPropertyName("monto")] decimal Monto,
+    [property: JsonPropertyName("nota")] string? Nota,
+    [property: JsonPropertyName("cliente")] string? Cliente,
+    [property: JsonPropertyName("dni")] string? Dni,
+    [property: JsonPropertyName("telefono")] string? Telefono,
+    [property: JsonPropertyName("agencia")] string? Agencia,
+    [property: JsonPropertyName("descontarStock")] bool? DescontarStock);
+
+record VentaUpdateReq(
+    [property: JsonPropertyName("monto")] decimal? Monto,
+    [property: JsonPropertyName("estado")] string? Estado,
+    [property: JsonPropertyName("cliente")] string? Cliente,
+    [property: JsonPropertyName("dni")] string? Dni,
+    [property: JsonPropertyName("telefono")] string? Telefono,
+    [property: JsonPropertyName("agencia")] string? Agencia,
+    [property: JsonPropertyName("nota")] string? Nota);
+
+record StockReq([property: JsonPropertyName("restante")] int Restante);
 
 record ChatMessage(
     [property: JsonPropertyName("role")] string Role,

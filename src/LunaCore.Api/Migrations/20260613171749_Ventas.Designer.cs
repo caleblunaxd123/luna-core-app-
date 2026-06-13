@@ -3,6 +3,7 @@ using System;
 using LunaCore.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace LunaCore.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260613171749_Ventas")]
+    partial class Ventas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -294,21 +297,8 @@ namespace LunaCore.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Agencia")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Cliente")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Dni")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Estado")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<decimal>("Monto")
                         .HasColumnType("decimal(10,2)");
@@ -321,9 +311,6 @@ namespace LunaCore.Api.Migrations
 
                     b.Property<string>("Origen")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Telefono")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
